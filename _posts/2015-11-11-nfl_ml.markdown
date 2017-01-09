@@ -1,0 +1,390 @@
+---
+layout: post
+title:  "NFL Predictions Using Machine Learning"
+date:   2015-11-11
+---
+
+## Goal
+
+The purpose of this project is to practice applying Machine Learning on NFL data. After taking Andrew Ng's Machine Learning course, I wanted to re-write some of the methods in Python and see how effective they are at predicting NFL statistics. Using Las Vegas as a benchmark, I predicted game winners and the spread in these games.
+
+## Overview
+
+* The first step was acquiring the data. For this, I webscraped the statistics from [Pro Football Reference](http://www.pro-football-reference.com) using [Beautiful Soup](http://www.crummy.com/software/BeautifulSoup). My Python code for this is on [Github](https://github.com/pjoos/NFL_Project). The code collects data from boxscores and creates .json files, where there is a file for each year and team, and the contents is a dictionary containing the webscraped statistics for each game week.
+
+* These .json files were then used to create .csv files for analysis in Python using Pandas and Numpy. For first models, I used logistic regression for predicting game winners, and linear regression for predicting the spread.
+
+* For my training set, I chose data from years 2009, 2011, and 2013. For my cross-validation set, I used years 2010 and 2012. Year 2014 was used as my test set.
+
+* Results up until now are located at the bottom of the page.
+
+## What is the Vegas line?
+
+Let's start with an example (my favorite example). In [Super Bowl XXXII](http://www.pro-football-reference.com/boxscores/199801250den.htm) on January 25, 1998, the Vegas Line for the game between the Green Bay Packers and Denver Broncos was 'Green Bay Packers -11.0'. This means that the Green Bay Packers were favored to win the game by 11 points. If you bet on Green Bay, then they had to beat the Denver Broncos by more than eleven points for you to win the bet. Alternatively, if you bet on the underdog Broncos, you would win if they won the game or lost by up to 11 points. The Broncos won the game by 7 points, thanks in part by John Elway's infamous helicopter dive, so the actual line for the game was 'Denver Broncos -7.0', and so Las Vegas's prediction was 18 points off.
+
+In my model, I changed the line definition slightly for ease of use. I specified the line always in terms of the home team, so a negative value means that the home team is favored, and a positive value means they are the underdog. Thus, when I predict the line, I just predict a single value for the home team that can take on positive and negative values.
+
+## How Good is Vegas?
+
+The following histogram shows how successful Las Vegas Lines have been from 2011-2014. As the figure shows, the data closely resembles a normal distribution. Negative x-values correspond to the Vegas favorite losing the spread, but not necessarily the game.
+
+<div align="center">
+<img src="/assets/vegas2.png">
+</div>
+
+The figure below compares the Vegas Line for home teams to how the home team actually performs. For example, the point at (-10, -58) corresponds to the [December 9, 2012](http://www.pro-football-reference.com/boxscores/201212090sea.htm) game between the Arizona Cardinals and the Seattle Seahawks. The Vegas Line was -10 for Seattle, but they actually won 58-0. Vegas correctly predicting the game would correspond to a dot along the dashed line labeled as the 'Line of Perfect Prediction.' The color values indicate density, and demonstrate that Vegas is very good at predicting close games.
+
+<div align="center">
+<img src="/assets/vegas_scatter2.png">
+</div>
+
+One might assume that Las Vegas predictions are much worse at the beginning of the season and then improve as time goes on and more data is acquired. However, the figure below seems to contradict this intuition. There is very little correlation between the two, except for the low variance at the end of the season.
+
+<div align="center">
+<img src="/assets/vegas_weekly.png">
+</div>
+
+Another idea I wanted to test was how good Vegas is as a function of their line. In other words, are they better at predicting blowouts or predicting close games? The figure below plots the mean and standard deviation of the absolution distance of the Vegas Line to the actual line (minimum 10 data points per Vegas Line). There isn't much correlation here, but they are slightly better at predicting close home losses. The high standard deviation is further proof that it is very hard to predict NFL scores.
+
+<div align="center">
+<img src="/assets/abs_dist2.png">
+</div>
+
+The following figure shows the frequency of final score distributions and how Vegas compares to it. As the figure shows, the most commonly occuring are +/- 3 and +/- 7, and Vegas mimics this. This makes sense because many games are decided by a single field goal or touchdown. In my opinion, this figure is very interesting because not only does Vegas try to predict the line, they also try to match the score frequency.
+
+<div align="center">
+<img src="/assets/freq2.png">
+</div>
+
+The table below shows how successful Vegas is at predicting game winners. This is the benchmark that I compared my code to.
+
+<table border="2px solid black">
+<tr class="r1"><td class="c1"><b>Year</b>  </td><td class="c2"> <b>% Correct</b> </td></tr>
+<tr class="r2"><td class="c1">2009 </td><td class="c2"> 69.53   </td></tr>
+<tr class="r3"><td class="c1">2010 </td><td class="c2"> 65.74   </td></tr>
+<tr class="r4"><td class="c1">2011 </td><td class="c2"> 66.41   </td></tr>
+<tr class="r5"><td class="c1">2012 </td><td class="c2"> 64.17   </td></tr>
+<tr class="r6"><td class="c1">2013 </td><td class="c2"> 68.50   </td></tr>
+<tr class="r7"><td class="c1">2014  </td><td class="c2"> 67.73  </td></tr>
+<tr class="r8"><td class="c1"><b>Overall</b> </td><td class="c2"> <b>67.02</b>
+</td></tr></table>
+
+
+
+## Predicting Game Winners
+
+Since predicting the winner of an NFL game is a classification problem, logistic regression is a good starting model. 
+
+#### Logistic Regression Model Description
+
+For this model, I calculated the average year-to-date value for each variable. Since averages early in the season will be less accurate, all row data is taken from weeks 5 to 17. In order to determine which variables to use, I experimented with different options, choosing those that performed best in the training set. Then I chose my final model based on which performed best in the cross-validation set.
+
+The variables that I chose are:
+
+* Home and Away winning percentages (2)
+
+* Home team's home winning percentage (1)
+
+* Away team's away winning percentage (1)
+
+* Points Scored and Points allowed for both teams (4)
+
+* 3rd Down Efficiency on Offense and Defense for both teams (4)
+
+* Touchdown Scoring Efficiency (Touchdowns / Drives) on Offense and Defense for both teams (4)
+
+* Defensive Turnovers for both teams (2)
+
+* Quarter 1 scoring for both teams (2)
+
+Thus I used 20 variables (21 if you count x_0)
+
+#### Logistic Regression Results
+
+Below are the weights for each of the normalized parameters, listed from most important to least important.
+
+<table border="2px solid black">
+<tr class="r1"><td class="c1"><b>No.</b> </td><td class="c2"> <b>Variable</b> </td><td class="c3"> <b>Value</b> </td></tr>
+<tr class="r2"><td class="c1">1 </td><td class="c2"> Away Off. Touchdown Efficiency </td><td class="c3"> -9.41 </td></tr>
+<tr class="r3"><td class="c1">2 </td><td class="c2"> Home Off. Touchdown Efficiency </td><td class="c3"> 5.41 </td></tr>
+<tr class="r4"><td class="c1">3 </td><td class="c2"> Away Off. 3rd Down Efficiency </td><td class="c3"> 4.41 </td></tr>
+<tr class="r5"><td class="c1">4 </td><td class="c2"> Home Def. Touchdown Efficiency </td><td class="c3"> -4.38 </td></tr>
+<tr class="r6"><td class="c1">5 </td><td class="c2"> Away Def. Touchdown Efficiency </td><td class="c3"> -3.94 </td></tr>
+<tr class="r7"><td class="c1">6 </td><td class="c2"> Away Def. 3rd Down Efficiency </td><td class="c3"> 1.27 </td></tr>
+<tr class="r8"><td class="c1">7 </td><td class="c2"> Home Def. 3rd Down Efficiency </td><td class="c3"> 1.09 </td></tr>
+<tr class="r9"><td class="c1">8 </td><td class="c2"> Home at Home Winning Percentage </td><td class="c3"> -0.79 </td></tr>
+<tr class="r10"><td class="c1">9 </td><td class="c2"> Away Winning Percentage </td><td class="c3"> -0.60 </td></tr>
+<tr class="r11"><td class="c1">10 </td><td class="c2"> Home Winning Percentage </td><td class="c3"> -0.46 </td></tr>
+<tr class="r12"><td class="c1">11 </td><td class="c2"> Home Off. 3rd Down Efficiency </td><td class="c3"> -0.37 </td></tr>
+<tr class="r13"><td class="c1">12 </td><td class="c2"> Away Def. Turnovers </td><td class="c3"> 0.18 </td></tr>
+<tr class="r14"><td class="c1">13 </td><td class="c2"> Home Def. Turnovers </td><td class="c3"> -0.14 </td></tr>
+<tr class="r15"><td class="c1">14 </td><td class="c2"> Away Road Winning Percentage </td><td class="c3"> -0.11 </td></tr>
+<tr class="r16"><td class="c1">15 </td><td class="c2"> Home Points Allowed </td><td class="c3"> -0.096 </td></tr>
+<tr class="r17"><td class="c1">16 </td><td class="c2"> Home Points Scored </td><td class="c3"> 0.083 </td></tr>
+<tr class="r18"><td class="c1">17 </td><td class="c2"> Away Points Allowed </td><td class="c3"> 0.054 </td></tr>
+<tr class="r19"><td class="c1">18 </td><td class="c2"> Away Quarter 1 Scoring </td><td class="c3"> -0.020 </td></tr>
+<tr class="r20"><td class="c1">19 </td><td class="c2"> Away Points Scored </td><td class="c3"> 0.015 </td></tr>
+<tr class="r21"><td class="c1">20 </td><td class="c2"> Home Quarter 1 Scoring </td><td class="c3"> 0.0075 </td></tr>
+<tr class="r22"><td class="c1">21 </td><td class="c2"> y-intercept </td><td class="c3"> 0.0017 
+</td></tr></table>
+
+<br>
+
+The table below shows the success of my logistic regression model across all three data sets, as well as Vegas's success on the same data sets.
+
+<table border="2px solid black">
+<tr class="r1"><td class="c1"></td><td class="c2"> <b>% Correct</b> </td><td class="c3"> <b>Vegas % Correct</b> </td></tr>
+<tr class="r2"><td class="c1">Training Set </td><td class="c2"> 66.84   </td><td class="c3"> 67.76 </td></tr>
+<tr class="r3"><td class="c1">Cross-Validation Set </td><td class="c2"> 66.150   </td><td class="c3"> 67.73 </td></tr>
+<tr class="r4"><td class="c1">Test Set </td><td class="c2"> 66.154 </td><td class="c3"> 69.47
+</td></tr></table>
+
+<br>
+
+As listed above, Vegas correctly predicted 69.47 percent of games in my test set (weeks 5-17 of the 2014 season). Getting within a few percent of Las Vegas's predictions using a straightforward logistic regression model was much better than I anticipated!
+
+The following table shows that my logistic regression model and Las Vegas agree over 88% of the time. This is based on results from the test set.
+
+<table border="2px solid black">
+<tr class="r1"><td class="c1"></td><td class="c2"> <b>% Vegas Correct</b> </td><td class="c3"> <b>% Vegas Incorrect </b> </td></tr>
+<tr class="r2"><td class="c1">
+<b>% Log. Reg. Correct </b> </td><td class="c2">62.96%</td><td class="c3">4.76%</td></tr>
+<tr class="r3"><td class="c1">
+<b>% Log. Reg. Incorrect </b> </td><td class="c2">6.88%</td><td class="c3">25.40%
+</td></tr></table>
+
+<br>
+
+#### Why does this model work so well?
+
+At first, it was surprising to me that statistics such as passing yards, rushing yards, sacks, etc. didn't have as big of an effect on the outcome of a game as the variables listed above. But I think it makes sense. 3rd down efficiency tells you how good a team is at moving the ball down the field. Touchdown scoring efficiency tells you how good a team is at finishing drives. Teams that regularly put points on the board in the first quarter can stick to their gameplan and not spend the game digging themselves out of a hole. A lot of the other statistics are included in these numbers. Offenses that turnover the ball over frequently or get sacked a lot are not going to be as effective at converting on 3rd down and scoring. And garbage time stats drown out the effectiveness of passing and rushing yards.
+
+## Predicting the Spread
+
+Predicting the spread is a regression problem, so the first model to try is linear regression. The value that we want to minimize is the absolute distance of the predicted line to the actual value.
+
+#### Linear Regression Model Description
+
+I used the same setup in this problem as the last once, where each variable is the average year-to-date value and all row data is taken from weeks 5 to 17. Variables were chosen based upon what performed best in the cross-validation set.
+
+The variables that I chose are:
+
+* Home and Away winning percentages (2)
+
+* Home team's home winning percentage (1)
+
+* Away team's away winning percentage (1)
+
+* Points Scored and Points allowed for both teams (4)
+
+* 3rd Down Efficiency on Offense and Defense for both teams (4)
+
+* Touchdown Scoring Efficiency (Touchdowns / Drives) on Offense and Defense for both teams (4)
+
+* Defensive Turnovers for both teams (2)
+
+* Quarter 1 scoring for both teams (2)
+
+* Quarter 2 scoring for both teams (2)
+
+So there are 23 variables including x_0.
+
+#### Linear Regression Results
+
+Below are the weights for each of the normalized parameters, listed from most important to least important.
+
+<table border="2px solid black">
+<tr class="r1"><td class="c1"><b>No.</b> </td><td class="c2"> <b>Variable</b> </td><td class="c3"> <b>Value</b> </td></tr>
+<tr class="r2"><td class="c1">1 </td><td class="c2"> Away Off. Touchdown Efficiency </td><td class="c3"> 75.53 </td></tr>
+<tr class="r3"><td class="c1">2 </td><td class="c2"> Home Off. Touchdown Efficiency </td><td class="c3"> -34.38 </td></tr>
+<tr class="r4"><td class="c1">3 </td><td class="c2"> Away Off. 3rd Down Efficiency </td><td class="c3"> -30.56 </td></tr>
+<tr class="r5"><td class="c1">4 </td><td class="c2"> Home Def. Touchdown Efficiency </td><td class="c3"> 16.33 </td></tr>
+<tr class="r6"><td class="c1">5 </td><td class="c2"> Away Def. Touchdown Efficiency </td><td class="c3"> -12.54 </td></tr>
+<tr class="r7"><td class="c1">6 </td><td class="c2"> Away Def. 3rd Down Efficiency </td><td class="c3"> -7.66 </td></tr>
+<tr class="r8"><td class="c1">7 </td><td class="c2"> y-intercept </td><td class="c3"> 6.72 </td></tr>
+<tr class="r9"><td class="c1">8 </td><td class="c2"> Away Winning Percentage </td><td class="c3"> 5.48 </td></tr>
+<tr class="r10"><td class="c1">9 </td><td class="c2"> Home Def. Turnovers </td><td class="c3"> 2.17 </td></tr>
+<tr class="r11"><td class="c1">10 </td><td class="c2"> Home at Home Winning Percentage </td><td class="c3"> 2.10 </td></tr>
+<tr class="r12"><td class="c1">11 </td><td class="c2"> Away Def. Turnovers </td><td class="c3"> -1.12 </td></tr>
+<tr class="r13"><td class="c1">12 </td><td class="c2"> Home Winning Percentage </td><td class="c3"> 0.76 </td></tr>
+<tr class="r14"><td class="c1">13 </td><td class="c2"> Home Off. 3rd Down Efficiency </td><td class="c3"> 0.76 </td></tr>
+<tr class="r15"><td class="c1">14 </td><td class="c2"> Home Points Allowed </td><td class="c3"> 0.58 </td></tr>
+<tr class="r16"><td class="c1">15 </td><td class="c2"> Home Points Scored </td><td class="c3"> -0.45 </td></tr>
+<tr class="r17"><td class="c1">16 </td><td class="c2"> Home Def. 3rd Down Efficiency </td><td class="c3"> -0.35 </td></tr>
+<tr class="r18"><td class="c1">17 </td><td class="c2"> Home Quarter 1 Scoring </td><td class="c3"> -0.25 </td></tr>
+<tr class="r19"><td class="c1">18 </td><td class="c2"> Away Quarter 2 Scoring </td><td class="c3"> -0.22 </td></tr>
+<tr class="r20"><td class="c1">19 </td><td class="c2"> Home Quarter 2 Scoring </td><td class="c3"> -0.21 </td></tr>
+<tr class="r21"><td class="c1">20 </td><td class="c2"> Away Points Allowed </td><td class="c3"> -0.20 </td></tr>
+<tr class="r22"><td class="c1">21 </td><td class="c2"> Away Points Scored </td><td class="c3"> -0.16 </td></tr>
+<tr class="r23"><td class="c1">22 </td><td class="c2"> Away Road Winning Percentage </td><td class="c3"> -0.07 </td></tr>
+<tr class="r24"><td class="c1">23 </td><td class="c2"> Away Quarter 1 Scoring </td><td class="c3"> -0.04 
+</td></tr></table>
+
+<br>
+
+Below is the table that shows how both my linear regression model and Las Vegas scored in the three data sets. The value measured is the average absolute distance between the predicted line and the actual line. I rounded the linear regression results to the nearest half point to match how Vegas Lines are presented.
+
+<table border="2px solid black"> 
+<tr class="r1"><td class="c1"></td><td class="c2"> <b>Linear Regression Line</b> </td><td class="c3"> <b>Las Vegas Line</b> </td></tr>
+<tr class="r2"><td class="c1">Training Set </td><td class="c2"> 10.92  </td><td class="c3"> 10.82 </td></tr>
+<tr class="r3"><td class="c1">Cross-Validation Set </td><td class="c2"> 11.07   </td><td class="c3"> 10.86 </td></tr>
+<tr class="r4"><td class="c1">Test Set </td><td class="c2"> 11.55 </td><td class="c3"> 11.00
+</td></tr></table>
+
+<br>
+
+It is interesting to note that if you look at this table and the logistic regression table above, Las Vegas is most successful at predicting the game winners in the test set (2014) versus the cross-validation and test sets, but that is where they did the worst when predicting the lines. The figure below compares how both Las Vegas and the linear regression model do at predicting the spread. One interesting spot is the accuracy of the linear regression model at x = 3. Along that vertical line, it performs much better than Vegas. Two other interesting points are at x=-8 and x=-6.5. The former has no Vegas predictions, but the latter has many more than its neighbors.
+
+<div align="center">
+<img src="/assets/lin_reg_success2.png">
+</div>
+
+The figure below shows how similar the linear regression model is to the Las Vegas line. As the figure shows, they match pretty well, and there is a definitive trend along the red dashed y=x line. Points in the second and fourth quadrants indicate that there was disagreement on which team was predicted to win, but on the whole, there is not any obvious anomalous data points.
+
+<div align="center">
+<img src="/assets/lin_reg_vs_vegas2.png">
+</div>
+
+The vertical dots are one interesting artifact in the above figure. These are present because Las Vegas adjusts their lines to follow the frequency of score differentials, as plotted above (see the figure entitled “Frequency of Spreads (2011-2014)”). As the figure below shows, the linear regression model does not follow this frequency. The next question then is will the linear regression model perform better if the predictions are adjusted to match this figure?
+
+<div align="center">
+<img src="/assets/freq_lin_reg2.png">
+</div>
+
+## Possible Improvements
+
+* I can increase the accuracy of Touchdown Scoring Efficiency by parsing the data more carefully. For instance, a team that kneels down to end the game shouldn't have that drive included. Another idea might be to have a way of dealing with garbage time points.
+
+* Getting more data. This might not be entirely beneficial, since league changes have led to increased scoring and passing yards.
+
+* Accounting for injuries. Injuries to key players can definitely alter the outcome of the game.
+
+## 2015 Success
+
+#### Summary of Results
+
+The table below is a summary of how my models have performed against Vegas so far this year. Since my models only use data from weeks 5-17, I start the table at Week 5. 'Vegas Line Dist’ and 'Lin. Reg. Line Dist’ are measures of the average absolute distance of all the predicted lines to the actual lines for all games that week. 'Lin. Reg. Beat Vegas’ is the number of times the linear regression predicted line is closer to the actual line than Vegas's prediction.
+
+<table border="2px solid black"> 
+<tr class="r1"><td class="c1"><b>Week</b> </td><td class="c2"> <b>Vegas Picks</b> </td><td class="c3"> <b>Log. Reg. Picks</b> </td><td class="c4"> <b>Vegas Line Dist</b> </td><td class="c5"> <b>Lin. Reg. Line Dist</b> </td><td class="c6"> <b>Lin. Reg. Beat Vegas</b> </td></tr>
+<tr class="r2"><td class="c1">5 </td><td class="c2"> 10/14 = 71.43% </td><td class="c3"> 11/14 = 78.57% </td><td class="c4"> 7.46 </td><td class="c5"> 9.00 </td><td class="c6">  5/14 = 37.71% </td></tr>
+<tr class="r3"><td class="c1">6 </td><td class="c2"> 8/14 = 57.14% </td><td class="c3"> 10/14 = 71.43% </td><td class="c4"> 9.36 </td><td class="c5"> 9.07 </td><td class="c6"> 8/14 = 57.14% </td></tr>
+<tr class="r4"><td class="c1">7 </td><td class="c2"> 11/14 = 78.57% </td><td class="c3"> 9/14 = 64.29% </td><td class="c4"> 6.82 </td><td class="c5"> 8.93 </td><td class="c6"> 5/14 = 37.71% </td></tr>
+<tr class="r5"><td class="c1">8 </td><td class="c2"> 10/14 = 71.43% </td><td class="c3"> 9/14 = 64.29% </td><td class="c4"> 10.71 </td><td class="c5"> 10.96 </td><td class="c6"> 8/14 = 57.14% </td></tr>
+<tr class="r6"><td class="c1">9 </td><td class="c2"> 8/13 = 61.54% </td><td class="c3"> 8/13 = 61.54% </td><td class="c4"> 7.46 </td><td class="c5"> 6.92 </td><td class="c6"> 6/13 = 46.15% </td></tr>
+<tr class="r7"><td class="c1">YTD </td><td class="c2"> 47/69 = 68.12% </td><td class="c3"> 47/69 = 68.12% </td><td class="c4"> 8.38 </td><td class="c5"> 9.01 </td><td class="c6"> 32/69 = 46.38%
+</td></tr></table>
+
+<br>
+
+#### Weekly Results
+
+Below are the results of how both my models and Vegas's lines perform from week 5 until now. The Logistic Regression H-value is the predicted output from 0 to 1, where 1 represents a predicted home team victory and 0 a home loss. The closer the value is to 0.5, the more evenly the teams are matched. Bold values for the predicted lines indicated which one is closer to the actual line, and bold values for the picks indicate correct picks.
+
+
+#### Week 5 Results
+
+<table border="2px solid black"> 
+<tr class="r1"><td class="c1"><b>No.</b> </td><td class="c2"> <b>Home</b> </td><td class="c3"> <b>Away</b> </td><td class="c4"> <b>Home Pts</b> </td><td class="c5"> <b>Away Pts</b> </td><td class="c6"> <b>Actual Line</b> </td><td class="c7"> <b>Vegas Line</b> </td><td class="c8"> <b>Lin. Reg. Line</b> </td><td class="c9"> <b>Vegas Pick</b> </td><td class="c10"> <b>Log. Reg. Pick</b> </td><td class="c11"> <b>Log. Reg. H-val</b>  </td></tr>
+<tr class="r2"><td class="c1">1 </td><td class="c2"> ATL </td><td class="c3"> WAS </td><td class="c4"> 25 </td><td class="c5"> 19 </td><td class="c6"> -6 </td><td class="c7"> <b>-7.0</b> </td><td class="c8"> -11.0 </td><td class="c9"> <b>ATL</b> </td><td class="c10"> <b>ATL</b> </td><td class="c11"> 0.743 </td></tr>
+<tr class="r3"><td class="c1">2 </td><td class="c2"> BAL </td><td class="c3"> CLE </td><td class="c4"> 30 </td><td class="c5"> 33 </td><td class="c6"> 3 </td><td class="c7"> -6.0 </td><td class="c8"> <b>-5.5</b> </td><td class="c9"> BAL </td><td class="c10"> BAL </td><td class="c11"> 0.686 </td></tr>
+<tr class="r4"><td class="c1">3 </td><td class="c2"> CIN </td><td class="c3"> SEA </td><td class="c4"> 27 </td><td class="c5"> 24 </td><td class="c6"> -3 </td><td class="c7"> <b>-3.0</b> </td><td class="c8"> -14.5 </td><td class="c9"> <b>CIN</b> </td><td class="c10"> <b>CIN</b> </td><td class="c11"> 0.903 </td></tr>
+<tr class="r5"><td class="c1">4 </td><td class="c2"> DAL </td><td class="c3"> NWE </td><td class="c4"> 6 </td><td class="c5"> 30 </td><td class="c6"> 24 </td><td class="c7"> <b>9.0</b> </td><td class="c8"> 1.5 </td><td class="c9"> <b>NWE</b> </td><td class="c10"> <b>NWE</b> </td><td class="c11"> 0.287 </td></tr>
+<tr class="r6"><td class="c1">5 </td><td class="c2"> DET </td><td class="c3"> ARI </td><td class="c4"> 17 </td><td class="c5"> 42 </td><td class="c6"> 25 </td><td class="c7"> 3.0 </td><td class="c8"> <b>11.5</b> </td><td class="c9"> <b>ARI</b> </td><td class="c10"> <b>ARI</b> </td><td class="c11"> 0.211 </td></tr>
+<tr class="r7"><td class="c1">6 </td><td class="c2"> GNB </td><td class="c3"> STL </td><td class="c4"> 24 </td><td class="c5"> 10 </td><td class="c6"> -14 </td><td class="c7"> -9.0 </td><td class="c8"> <b>-11.0</b> </td><td class="c9"> <b>GNB</b> </td><td class="c10"> <b>GNB</b> </td><td class="c11"> 0.846 </td></tr>
+<tr class="r8"><td class="c1">7 </td><td class="c2"> HOU </td><td class="c3"> IND </td><td class="c4"> 20 </td><td class="c5"> 27 </td><td class="c6"> 7 </td><td class="c7"> -2.0 </td><td class="c8"> <b>-0.5</b> </td><td class="c9"> HOU </td><td class="c10"> <b>IND</b> </td><td class="c11"> 0.477 </td></tr>
+<tr class="r9"><td class="c1">8 </td><td class="c2"> KAN </td><td class="c3"> CHI </td><td class="c4"> 17 </td><td class="c5"> 18 </td><td class="c6"> 1 </td><td class="c7"> <b>-9.0</b> </td><td class="c8"> -10.5 </td><td class="c9"> KAN </td><td class="c10"> KAN </td><td class="c11"> 0.648 </td></tr>
+<tr class="r10"><td class="c1">9 </td><td class="c2"> NYG </td><td class="c3"> SFO </td><td class="c4"> 30 </td><td class="c5"> 27 </td><td class="c6"> -3 </td><td class="c7"> <b>-6.5</b> </td><td class="c8"> -10.5 </td><td class="c9"> <b>NYG</b> </td><td class="c10"> <b>NYG</b> </td><td class="c11"> 0.786 </td></tr>
+<tr class="r11"><td class="c1">10 </td><td class="c2"> OAK </td><td class="c3"> DEN </td><td class="c4"> 10 </td><td class="c5"> 16 </td><td class="c6"> 6 </td><td class="c7"> <b>4.0</b> </td><td class="c8"> 0.5 </td><td class="c9"> <b>DEN</b> </td><td class="c10"> <b>DEN</b> </td><td class="c11"> 0.498 </td></tr>
+<tr class="r12"><td class="c1">11 </td><td class="c2"> PHI </td><td class="c3"> NOR </td><td class="c4"> 39 </td><td class="c5"> 17 </td><td class="c6"> -22 </td><td class="c7"> <b>-6.0</b> </td><td class="c8"> -4.5 </td><td class="c9"> <b>PHI</b> </td><td class="c10"> <b>PHI</b> </td><td class="c11"> 0.746 </td></tr>
+<tr class="r13"><td class="c1">12 </td><td class="c2"> SDG </td><td class="c3"> PIT </td><td class="c4"> 20 </td><td class="c5"> 24 </td><td class="c6"> 4 </td><td class="c7"> -3.5 </td><td class="c8"> <b>3.0</b> </td><td class="c9"> SDG </td><td class="c10"> <b>PIT</b> </td><td class="c11"> 0.277 </td></tr>
+<tr class="r14"><td class="c1">13 </td><td class="c2"> TAM </td><td class="c3"> JAX </td><td class="c4"> 38 </td><td class="c5"> 31 </td><td class="c6"> -7 </td><td class="c7"> <b>-2.5</b> </td><td class="c8"> -2.0 </td><td class="c9"> <b>TAM</b> </td><td class="c10"> <b>TAM</b> </td><td class="c11"> 0.577 </td></tr>
+<tr class="r15"><td class="c1">14 </td><td class="c2"> TEN </td><td class="c3"> BUF </td><td class="c4"> 13 </td><td class="c5"> 14 </td><td class="c6"> 1 </td><td class="c7"> <b>1.0</b> </td><td class="c8"> -5.5 </td><td class="c9"> <b>BUF</b> </td><td class="c10"> TEN </td><td class="c11"> 0.658
+</td></tr></table>
+
+<br>
+
+#### Week 6 Results
+
+<table border="2px solid black"> 
+<tr class="r1"><td class="c1"><b>No.</b> </td><td class="c2"> <b>Home</b> </td><td class="c3"> <b>Away</b> </td><td class="c4"> <b>Home Pts</b> </td><td class="c5"> <b>Away Pts</b> </td><td class="c6"> <b>Actual Line</b> </td><td class="c7"> <b>Vegas Line</b> </td><td class="c8"> <b>Lin. Reg. Line</b> </td><td class="c9"> <b>Vegas Pick</b> </td><td class="c10"> <b>Log. Reg. Pick</b> </td><td class="c11"> <b>Log. Reg. H-val</b> </td></tr>
+<tr class="r2"><td class="c1">1 </td><td class="c2"> BUF </td><td class="c3"> CIN </td><td class="c4"> 21 </td><td class="c5"> 34 </td><td class="c6"> 13 </td><td class="c7"> 3.0 </td><td class="c8"> <b>4.0</b> </td><td class="c9"> <b>CIN</b> </td><td class="c10"> <b>CIN</b> </td><td class="c11"> 0.450 </td></tr>
+<tr class="r3"><td class="c1">2 </td><td class="c2"> CLE </td><td class="c3"> DEN </td><td class="c4"> 23 </td><td class="c5"> 26 </td><td class="c6"> 3 </td><td class="c7"> <b>3.5</b> </td><td class="c8"> 0.0 </td><td class="c9"> <b>DEN</b> </td><td class="c10"> <b>DEN</b> </td><td class="c11"> 0.468 </td></tr>
+<tr class="r4"><td class="c1">3 </td><td class="c2"> DET </td><td class="c3"> CHI </td><td class="c4"> 37 </td><td class="c5"> 34 </td><td class="c6"> -3 </td><td class="c7"> <b>-3.0</b> </td><td class="c8"> -2.0 </td><td class="c9"> <b>DET</b> </td><td class="c10"> <b>DET</b> </td><td class="c11"> 0.502 </td></tr>
+<tr class="r5"><td class="c1">4 </td><td class="c2"> GNB </td><td class="c3"> SDG </td><td class="c4"> 27 </td><td class="c5"> 20 </td><td class="c6"> -7 </td><td class="c7"> -10.5 </td><td class="c8"> <b>-9.0</b> </td><td class="c9"> <b>GNB</b> </td><td class="c10"> <b>GNB</b> </td><td class="c11"> 0.757 </td></tr>
+<tr class="r6"><td class="c1">5 </td><td class="c2"> IND </td><td class="c3"> NWE </td><td class="c4"> 27 </td><td class="c5"> 34 </td><td class="c6"> 7 </td><td class="c7"> 9.5 </td><td class="c8"> <b>6.5</b> </td><td class="c9"> <b>NWE</b> </td><td class="c10"> <b>NWE</b> </td><td class="c11"> 0.226 </td></tr>
+<tr class="r7"><td class="c1">6 </td><td class="c2"> JAX </td><td class="c3"> HOU </td><td class="c4"> 20 </td><td class="c5"> 31 </td><td class="c6"> 11 </td><td class="c7"> -2.5 </td><td class="c8"> <b>0.5</b> </td><td class="c9"> JAX </td><td class="c10"> <b>HOU</b> </td><td class="c11"> 0.428 </td></tr>
+<tr class="r8"><td class="c1">7 </td><td class="c2"> MIN </td><td class="c3"> KAN </td><td class="c4"> 16 </td><td class="c5"> 10 </td><td class="c6"> -6 </td><td class="c7"> -3.5 </td><td class="c8"> <b>-5.0</b> </td><td class="c9"> <b>MIN</b> </td><td class="c10"> <b>MIN</b> </td><td class="c11"> 0.501 </td></tr>
+<tr class="r9"><td class="c1">8 </td><td class="c2"> NOR </td><td class="c3"> ATL </td><td class="c4"> 31 </td><td class="c5"> 21 </td><td class="c6"> -10 </td><td class="c7"> <b>3.0</b> </td><td class="c8"> 5.0 </td><td class="c9"> ATL </td><td class="c10"> ATL </td><td class="c11"> 0.212 </td></tr>
+<tr class="r10"><td class="c1">9 </td><td class="c2"> NYJ </td><td class="c3"> WAS </td><td class="c4"> 34 </td><td class="c5"> 20 </td><td class="c6"> -14 </td><td class="c7"> -7.0 </td><td class="c8"> <b>-8.5</b> </td><td class="c9"> <b>NYJ</b> </td><td class="c10"> <b>NYJ</b> </td><td class="c11"> 0.824 </td></tr>
+<tr class="r11"><td class="c1">10 </td><td class="c2"> PHI </td><td class="c3"> NYG </td><td class="c4"> 27 </td><td class="c5"> 7 </td><td class="c6"> -20 </td><td class="c7"> <b>-5.0</b> </td><td class="c8"> -3.5 </td><td class="c9"> <b>PHI</b> </td><td class="c10"> <b>PHI</b> </td><td class="c11"> 0.691 </td></tr>
+<tr class="r12"><td class="c1">11 </td><td class="c2"> PIT </td><td class="c3"> ARI </td><td class="c4"> 25 </td><td class="c5"> 13 </td><td class="c6"> -12 </td><td class="c7"> 3.5 </td><td class="c8"> <b>2.5</b> </td><td class="c9"> ARI </td><td class="c10"> ARI </td><td class="c11"> 0.383 </td></tr>
+<tr class="r13"><td class="c1">12 </td><td class="c2"> SFO </td><td class="c3"> BAL </td><td class="c4"> 25 </td><td class="c5"> 20 </td><td class="c6"> -5 </td><td class="c7"> <b>2.0</b> </td><td class="c8"> 4.5 </td><td class="c9"> BAL </td><td class="c10"> BAL </td><td class="c11"> 0.284 </td></tr>
+<tr class="r14"><td class="c1">13 </td><td class="c2"> SEA </td><td class="c3"> CAR </td><td class="c4"> 23 </td><td class="c5"> 27 </td><td class="c6"> 4 </td><td class="c7"> -7.0 </td><td class="c8"> <b>0.5</b> </td><td class="c9"> SEA </td><td class="c10"> <b>CAR</b> </td><td class="c11"> 0.468 </td></tr>
+<tr class="r15"><td class="c1">14 </td><td class="c2"> TEN </td><td class="c3"> MIA </td><td class="c4"> 10 </td><td class="c5"> 38 </td><td class="c6"> 28 </td><td class="c7"> <b>-2.0</b> </td><td class="c8"> -7.5 </td><td class="c9"> TEN </td><td class="c10"> TEN </td><td class="c11"> 0.772
+</td></tr></table>
+
+<br>
+
+#### Week 7 Results
+
+<table border="2px solid black"> 
+<tr class="r1"><td class="c1"><b>No.</b> </td><td class="c2"> <b>Home</b> </td><td class="c3"> <b>Away</b> </td><td class="c4"> <b>Home Pts</b> </td><td class="c5"> <b>Away Pts</b> </td><td class="c6"> <b>Actual Line</b> </td><td class="c7"> <b>Vegas Line</b> </td><td class="c8"> <b>Lin. Reg. Line</b> </td><td class="c9"> <b>Vegas Pick</b> </td><td class="c10"> <b>Log. Reg. Pick</b> </td><td class="c11"> <b>Log. Reg. H-val</b> </td></tr>
+<tr class="r2"><td class="c1">1 </td><td class="c2"> ARI </td><td class="c3"> BAL </td><td class="c4"> 26 </td><td class="c5"> 18 </td><td class="c6"> -8 </td><td class="c7"> <b>-8.0</b> </td><td class="c8"> -15.5 </td><td class="c9"> <b>ARI</b> </td><td class="c10"> <b>ARI</b> </td><td class="c11"> 0.909 </td></tr>
+<tr class="r3"><td class="c1">2 </td><td class="c2"> CAR </td><td class="c3"> PHI </td><td class="c4"> 27 </td><td class="c5"> 16 </td><td class="c6"> -11 </td><td class="c7"> -3.0 </td><td class="c8"> <b>-3.0</b> </td><td class="c9"> <b>CAR</b> </td><td class="c10"> <b>CAR</b> </td><td class="c11"> 0.651 </td></tr>
+<tr class="r4"><td class="c1">3 </td><td class="c2"> DET </td><td class="c3"> MIN </td><td class="c4"> 19 </td><td class="c5"> 28 </td><td class="c6"> 9 </td><td class="c7"> 2.0 </td><td class="c8"> <b>4.0</b> </td><td class="c9"> <b>MIN</b> </td><td class="c10"> <b>MIN</b> </td><td class="c11"> 0.360 </td></tr>
+<tr class="r5"><td class="c1">4 </td><td class="c2"> IND </td><td class="c3"> NOR </td><td class="c4"> 21 </td><td class="c5"> 27 </td><td class="c6"> 6 </td><td class="c7"> <b>-4.0</b> </td><td class="c8"> -6.0 </td><td class="c9"> IND </td><td class="c10"> IND </td><td class="c11"> 0.624 </td></tr>
+<tr class="r6"><td class="c1">5 </td><td class="c2"> JAX </td><td class="c3"> BUF </td><td class="c4"> 34 </td><td class="c5"> 31 </td><td class="c6"> -3 </td><td class="c7"> <b>4.0</b> </td><td class="c8"> 6.0 </td><td class="c9"> BUF </td><td class="c10"> BUF </td><td class="c11"> 0.248 </td></tr>
+<tr class="r7"><td class="c1">6 </td><td class="c2"> KAN </td><td class="c3"> PIT </td><td class="c4"> 23 </td><td class="c5"> 13 </td><td class="c6"> -10 </td><td class="c7"> <b>-3.0</b> </td><td class="c8"> 3.0 </td><td class="c9"> <b>KAN</b> </td><td class="c10"> PIT </td><td class="c11"> 0.405 </td></tr>
+<tr class="r8"><td class="c1">7 </td><td class="c2"> MIA </td><td class="c3"> HOU </td><td class="c4"> 44 </td><td class="c5"> 26 </td><td class="c6"> -18 </td><td class="c7"> <b>-4.5</b> </td><td class="c8"> -4.0 </td><td class="c9"> <b>MIA</b> </td><td class="c10"> <b>MIA</b> </td><td class="c11"> 0.681 </td></tr>
+<tr class="r9"><td class="c1">8 </td><td class="c2"> NWE </td><td class="c3"> NYJ </td><td class="c4"> 30 </td><td class="c5"> 23 </td><td class="c6"> -7 </td><td class="c7"> <b>-7.5</b> </td><td class="c8"> -12.0 </td><td class="c9"> <b>NWE</b> </td><td class="c10"> <b>NWE</b> </td><td class="c11"> 0.832 </td></tr>
+<tr class="r10"><td class="c1">9 </td><td class="c2"> NYG </td><td class="c3"> DAL </td><td class="c4"> 27 </td><td class="c5"> 20 </td><td class="c6"> -7 </td><td class="c7"> <b>-3.0</b> </td><td class="c8"> -1.5 </td><td class="c9"> <b>NYG</b> </td><td class="c10"> <b>NYG</b> </td><td class="c11"> 0.500 </td></tr>
+<tr class="r11"><td class="c1">10 </td><td class="c2"> SDG </td><td class="c3"> OAK </td><td class="c4"> 29 </td><td class="c5"> 37 </td><td class="c6"> 8 </td><td class="c7"> -3.5 </td><td class="c8"> <b>-3.5</b> </td><td class="c9"> SDG </td><td class="c10"> SDG </td><td class="c11"> 0.563 </td></tr>
+<tr class="r12"><td class="c1">11 </td><td class="c2"> SFO </td><td class="c3"> SEA </td><td class="c4"> 3 </td><td class="c5"> 20 </td><td class="c6"> 17 </td><td class="c7"> <b>6.5</b> </td><td class="c8"> 1.5 </td><td class="c9"> <b>SEA</b> </td><td class="c10"> <b>SEA</b> </td><td class="c11"> 0.368 </td></tr>
+<tr class="r13"><td class="c1">12 </td><td class="c2"> STL </td><td class="c3"> CLE </td><td class="c4"> 24 </td><td class="c5"> 6 </td><td class="c6"> -18 </td><td class="c7"> <b>-6.5</b> </td><td class="c8"> -3.0 </td><td class="c9"> <b>STL</b> </td><td class="c10"> <b>STL</b> </td><td class="c11"> 0.614 </td></tr>
+<tr class="r14"><td class="c1">13 </td><td class="c2"> TEN </td><td class="c3"> ATL </td><td class="c4"> 7 </td><td class="c5"> 10 </td><td class="c6"> 3 </td><td class="c7"> 6.0 </td><td class="c8"> <b>0.5</b> </td><td class="c9"> <b>ATL</b> </td><td class="c10"> <b>ATL</b> </td><td class="c11"> 0.430 </td></tr>
+<tr class="r15"><td class="c1">14 </td><td class="c2"> WAS </td><td class="c3"> TAM </td><td class="c4"> 31 </td><td class="c5"> 30 </td><td class="c6"> -1 </td><td class="c7"> -3.0 </td><td class="c8"> <b>-2.5</b> </td><td class="c9"> <b>WAS</b> </td><td class="c10"> TAM </td><td class="c11"> 0.447
+</td></tr></table>
+
+<br>
+
+#### Week 8 Results
+
+<table border="2px solid black"> 
+<tr class="r1"><td class="c1"><b>No.</b> </td><td class="c2"> <b>Home</b> </td><td class="c3"> <b>Away</b> </td><td class="c4"> <b>Home Pts</b> </td><td class="c5"> <b>Away Pts</b> </td><td class="c6"> <b>Actual Line</b> </td><td class="c7"> <b>Vegas Line</b> </td><td class="c8"> <b>Lin. Reg. Line</b> </td><td class="c9"> <b>Vegas Pick</b> </td><td class="c10"> <b>Log. Reg. Pick</b> </td><td class="c11"> <b>Log. Reg. H-val</b> </td></tr>
+<tr class="r2"><td class="c1">1 </td><td class="c2"> ATL </td><td class="c3"> TAM </td><td class="c4"> 20 </td><td class="c5"> 23 </td><td class="c6"> 3 </td><td class="c7"> <b>-7.0</b> </td><td class="c8"> -10.5 </td><td class="c9"> ATL </td><td class="c10"> ATL </td><td class="c11"> 0.655 </td></tr>
+<tr class="r3"><td class="c1">2 </td><td class="c2"> BAL </td><td class="c3"> SDG </td><td class="c4"> 29 </td><td class="c5"> 26 </td><td class="c6"> -3 </td><td class="c7"> -3.5 </td><td class="c8"> <b>-3.5</b> </td><td class="c9"> <b>BAL</b> </td><td class="c10"> <b>BAL</b> </td><td class="c11"> 0.665 </td></tr>
+<tr class="r4"><td class="c1">3 </td><td class="c2"> CAR </td><td class="c3"> IND </td><td class="c4"> 29 </td><td class="c5"> 26 </td><td class="c6"> -3 </td><td class="c7"> -6.5 </td><td class="c8"> <b>-6.5</b> </td><td class="c9"> <b>CAR</b> </td><td class="c10"> <b>CAR</b> </td><td class="c11"> 0.669 </td></tr>
+<tr class="r5"><td class="c1">4 </td><td class="c2"> CHI </td><td class="c3"> MIN </td><td class="c4"> 20 </td><td class="c5"> 23 </td><td class="c6"> 3 </td><td class="c7"> <b>1.0</b> </td><td class="c8"> 5.5 </td><td class="c9"> <b>MIN</b> </td><td class="c10"> <b>MIN</b> </td><td class="c11"> 0.262 </td></tr>
+<tr class="r6"><td class="c1">5 </td><td class="c2"> CLE </td><td class="c3"> ARI </td><td class="c4"> 20 </td><td class="c5"> 34 </td><td class="c6"> 14 </td><td class="c7"> 6.0 </td><td class="c8"> <b>8.5</b> </td><td class="c9"> <b>ARI</b> </td><td class="c10"> <b>ARI</b> </td><td class="c11"> 0.215 </td></tr>
+<tr class="r7"><td class="c1">6 </td><td class="c2"> DAL </td><td class="c3"> SEA </td><td class="c4"> 12 </td><td class="c5"> 13 </td><td class="c6"> 1 </td><td class="c7"> 4.5 </td><td class="c8"> <b>-2.0</b> </td><td class="c9"> <b>SEA</b> </td><td class="c10"> DAL </td><td class="c11"> 0.550 </td></tr>
+<tr class="r8"><td class="c1">7 </td><td class="c2"> DEN </td><td class="c3"> GNB </td><td class="c4"> 29 </td><td class="c5"> 10 </td><td class="c6"> -19 </td><td class="c7"> <b>2.5</b> </td><td class="c8"> 9.5 </td><td class="c9"> GNB </td><td class="c10"> GNB </td><td class="c11"> 0.195 </td></tr>
+<tr class="r9"><td class="c1">8 </td><td class="c2"> HOU </td><td class="c3"> TEN </td><td class="c4"> 20 </td><td class="c5"> 6 </td><td class="c6"> -14 </td><td class="c7"> <b>-3.5</b> </td><td class="c8"> 1.5 </td><td class="c9"> <b>HOU</b> </td><td class="c10"> TEN </td><td class="c11"> 0.346 </td></tr>
+<tr class="r10"><td class="c1">9 </td><td class="c2"> KAN </td><td class="c3"> DET </td><td class="c4"> 45 </td><td class="c5"> 10 </td><td class="c6"> -35 </td><td class="c7"> -3.5 </td><td class="c8"> <b>-4.5</b> </td><td class="c9"> <b>KAN</b> </td><td class="c10"> <b>KAN</b> </td><td class="c11"> 0.565 </td></tr>
+<tr class="r11"><td class="c1">10 </td><td class="c2"> NWE </td><td class="c3"> MIA </td><td class="c4"> 36 </td><td class="c5"> 7 </td><td class="c6"> -29 </td><td class="c7"> -7.5 </td><td class="c8"> <b>-10.0</b> </td><td class="c9"> <b>NWE</b> </td><td class="c10"> <b>NWE</b> </td><td class="c11"> 0.714 </td></tr>
+<tr class="r12"><td class="c1">11 </td><td class="c2"> NOR </td><td class="c3"> NYG </td><td class="c4"> 52 </td><td class="c5"> 49 </td><td class="c6"> -3 </td><td class="c7"> <b>-3.0</b> </td><td class="c8"> -2.5 </td><td class="c9"> <b>NOR</b> </td><td class="c10"> NYG </td><td class="c11"> 0.494 </td></tr>
+<tr class="r13"><td class="c1">12 </td><td class="c2"> OAK </td><td class="c3"> NYJ </td><td class="c4"> 34 </td><td class="c5"> 20 </td><td class="c6"> -14 </td><td class="c7"> 3.0 </td><td class="c8"> <b>-2.0</b> </td><td class="c9"> NYJ </td><td class="c10"> <b>OAK</b> </td><td class="c11"> 0.605 </td></tr>
+<tr class="r14"><td class="c1">13 </td><td class="c2"> PIT </td><td class="c3"> CIN </td><td class="c4"> 10 </td><td class="c5"> 16 </td><td class="c6"> 6 </td><td class="c7"> -1.0 </td><td class="c8"> <b>4.5</b> </td><td class="c9"> PIT </td><td class="c10"> <b>CIN</b> </td><td class="c11"> 0.379 </td></tr>
+<tr class="r15"><td class="c1">14 </td><td class="c2"> STL </td><td class="c3"> SFO </td><td class="c4"> 27 </td><td class="c5"> 6 </td><td class="c6"> -21 </td><td class="c7"> <b>-7.5</b> </td><td class="c8"> -3.5 </td><td class="c9"> <b>STL</b> </td><td class="c10"> <b>STL</b> </td><td class="c11"> 0.635
+</td></tr></table>
+
+<br>
+
+#### Week 9 Results
+
+<table border="2px solid black"> 
+<tr class="r1"><td class="c1"><b>No.</b> </td><td class="c2"> <b>Home</b> </td><td class="c3"> <b>Away</b> </td><td class="c4"> <b>Home Pts</b> </td><td class="c5"> <b>Away Pts</b> </td><td class="c6"> <b>Actual Line</b> </td><td class="c7"> <b>Vegas Line</b> </td><td class="c8"> <b>Lin. Reg. Line</b> </td><td class="c9"> <b>Vegas Pick</b> </td><td class="c10"> <b>Log. Reg. Pick</b> </td><td class="c11"> <b>Log. Reg. H-val</b> </td></tr>
+<tr class="r2"><td class="c1">1 </td><td class="c2"> BUF </td><td class="c3"> MIA </td><td class="c4"> 33 </td><td class="c5"> 17 </td><td class="c6"> -16 </td><td class="c7"> <b>-3.0</b> </td><td class="c8"> -1.5 </td><td class="c9"> <b>BUF</b> </td><td class="c10"> <b>BUF</b> </td><td class="c11"> 0.524 </td></tr>
+<tr class="r3"><td class="c1">2 </td><td class="c2"> CAR </td><td class="c3"> GNB </td><td class="c4"> 37 </td><td class="c5"> 29 </td><td class="c6"> -8 </td><td class="c7"> 2.5 </td><td class="c8"> <b>2.5</b> </td><td class="c9"> GNB </td><td class="c10"> GNB </td><td class="c11"> 0.384 </td></tr>
+<tr class="r4"><td class="c1">3 </td><td class="c2"> CIN </td><td class="c3"> CLE </td><td class="c4"> 31 </td><td class="c5"> 10 </td><td class="c6"> -21 </td><td class="c7"> -11.0 </td><td class="c8"> <b>-17.5</b> </td><td class="c9"> <b>CIN</b> </td><td class="c10"> <b>CIN</b> </td><td class="c11"> 0.890 </td></tr>
+<tr class="r5"><td class="c1">4 </td><td class="c2"> DAL </td><td class="c3"> PHI </td><td class="c4"> 27 </td><td class="c5"> 33 </td><td class="c6"> 6 </td><td class="c7"> <b>3.0</b> </td><td class="c8"> -1.0 </td><td class="c9"> <b>PHI</b> </td><td class="c10"> DAL </td><td class="c11"> 0.586 </td></tr>
+<tr class="r6"><td class="c1">5 </td><td class="c2"> IND </td><td class="c3"> DEN </td><td class="c4"> 27 </td><td class="c5"> 24 </td><td class="c6"> -3 </td><td class="c7"> 5.5 </td><td class="c8"> <b>1.0</b> </td><td class="c9"> DEN </td><td class="c10"> <b>IND</b> </td><td class="c11"> 0.506 </td></tr>
+<tr class="r7"><td class="c1">6 </td><td class="c2"> MIN </td><td class="c3"> STL </td><td class="c4"> 21 </td><td class="c5"> 18 </td><td class="c6"> -3 </td><td class="c7"> <b>-1.0</b> </td><td class="c8"> 1.0 </td><td class="c9"> <b>MIN</b> </td><td class="c10"> STL </td><td class="c11"> 0.495 </td></tr>
+<tr class="r8"><td class="c1">7 </td><td class="c2"> NWE </td><td class="c3"> WAS </td><td class="c4"> 27 </td><td class="c5"> 10 </td><td class="c6"> -17 </td><td class="c7"> -14.0 </td><td class="c8"> <b>-18.0</b> </td><td class="c9"> <b>NWE</b> </td><td class="c10"> <b>NWE</b> </td><td class="c11"> 0.909 </td></tr>
+<tr class="r9"><td class="c1">8 </td><td class="c2"> NOR </td><td class="c3"> TEN </td><td class="c4"> 28 </td><td class="c5"> 34 </td><td class="c6"> 6 </td><td class="c7"> -7.5 </td><td class="c8"> <b>-1.0</b> </td><td class="c9"> NOR </td><td class="c10"> <b>TEN</b> </td><td class="c11"> 0.374 </td></tr>
+<tr class="r10"><td class="c1">9 </td><td class="c2"> NYJ </td><td class="c3"> JAX </td><td class="c4"> 28 </td><td class="c5"> 23 </td><td class="c6"> -5 </td><td class="c7"> -8.0 </td><td class="c8"> <b>-7.5</b> </td><td class="c9"> <b>NYJ</b> </td><td class="c10"> <b>NYJ</b> </td><td class="c11"> 0.748 </td></tr>
+<tr class="r11"><td class="c1">10 </td><td class="c2"> PIT </td><td class="c3"> OAK </td><td class="c4"> 38 </td><td class="c5"> 35 </td><td class="c6"> -3 </td><td class="c7"> <b>-4.5</b> </td><td class="c8"> -5.0 </td><td class="c9"> <b>PIT</b> </td><td class="c10"> <b>PIT</b> </td><td class="c11"> 0.666 </td></tr>
+<tr class="r12"><td class="c1">11 </td><td class="c2"> SDG </td><td class="c3"> CHI </td><td class="c4"> 19 </td><td class="c5"> 22 </td><td class="c6"> 3 </td><td class="c7"> <b>-4.5</b> </td><td class="c8"> -8.0 </td><td class="c9"> SDG </td><td class="c10"> SDG </td><td class="c11"> 0.660 </td></tr>
+<tr class="r13"><td class="c1">12 </td><td class="c2"> SFO </td><td class="c3"> ATL </td><td class="c4"> 17 </td><td class="c5"> 16 </td><td class="c6"> -1 </td><td class="c7"> <b>7.5</b> </td><td class="c8"> 8.5 </td><td class="c9"> ATL </td><td class="c10"> ATL </td><td class="c11"> 0.157 </td></tr>
+<tr class="r14"><td class="c1">13 </td><td class="c2"> TAM </td><td class="c3"> NYG </td><td class="c4"> 18 </td><td class="c5"> 32 </td><td class="c6"> 14 </td><td class="c7"> <b>1.0</b> </td><td class="c8"> 0.5 </td><td class="c9"> <b>NYG</b> </td><td class="c10"> <b>NYG</b> </td><td class="c11"> 0.377
+</td></tr></table>

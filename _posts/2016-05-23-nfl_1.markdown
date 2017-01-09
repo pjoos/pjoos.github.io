@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "NFL Predictions Using Machine Learning: Overview"
+title:  "Understanding Spread Betting in the NFL and the Kelly Criterion"
 date:   2016-05-23
 ---
 
@@ -11,7 +11,7 @@ I've always been a football fan. I grew up rooting for the Denver Broncos, which
 1. Predicting Game Winners (A Classification Problem)
 2. Predicting the Spread (A Regression Problem)
 
-This post is the first in a series explaining how I collected the data and some of the results I found. But first, I want to discuss how well Vegas and other experts do at prediction, and find a ballpark figure for what sort of accuracy would constitute profitability.
+First, I will to discuss how well Vegas and other experts do at prediction, and find a ballpark figure for what sort of accuracy would constitute profitability.
 
 
 
@@ -93,7 +93,3 @@ where b is the odds (for spread betting b = 10/11) and p is your probability of 
 
 Now that we know what sort of values constitute success with regards to both game prediction and spread betting, we can build some simple machine learning models and see how well they perform. But first, we have to acquire the data!
 
-
-## Up Next
-
-Web scraping and preliminary data analysis
