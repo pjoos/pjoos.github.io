@@ -1,0 +1,117 @@
+---
+layout: post
+title:  "Using Deep Learning to Identify Overwatch Characters on Twitch"
+date:   2016-06-04
+---
+
+I created the website [WatchYourHero.com](http://watchyourhero.com/) to use deep learning on image classification to determine which Overwatch character a Twitch streamer is currently playing. I'm going to go over how I acquired the data and some of my results.
+
+## Overview
+
+[Overwatch](https://playoverwatch.com/en-us/) is a new game released by Blizzard Entertainment on May 24, 2016. It is a multiplayer first-person shooter, where two teams of six players chose from amongst 21 characters and compete to control command points and escort payloads to delivery points. It is currently one of the most popular streamed games on [Twitch](https://www.twitch.tv/), which is a live streaming video platform where users can watch people play their favorite video games.
+
+My goal in this project was to take image snapshots taken from the Twitch API of streamers playing Overwatch, and using deep learning, determine which character each streamer is playing. Character filtering is a feature not currently implemented within Twitch and provides users a quick way to find and watch their favorite characters.
+
+## Using the Twitch API
+
+The [Twitch API](https://github.com/justintv/Twitch-API) is the best way to get current data on Twitch streamers, and it is very straightforward to use. Below is Python code for how I get the list of streamers playing Overwatch, which I store as a dictionary.
+
+{% highlight python %}
+import json
+import requests
+game_name = 'overwatch'
+limit = 100
+offset = 0
+url = 'https://api.twitch.tv/kraken/streams?game=' + 
+	game_name + '&limit=' + str(limit) + '&offset=' + str(offset)
+stream_dict = requests.get(url).json()
+{% endhighlight %}
+
+You can only get data on a maximum of 100 streamers per API call. So you could put the above in a for-loop and increment 'offset' if you want more than 100 streams. By default it conveniently lists streams in descending order of viewership. If you are calling the API many times, you will probably want to add a sleep command in-between requests to avoid getting rate-limited or blocked.
+
+The key data I needed from the above dictionary are the streamer's name, the number of viewers, the language of the stream, and the url for the most recent screenshot of the stream. Below is the code snippet for getting this data for the first streamer.
+
+{% highlight python %}
+streamer_name = stream_dict['streams'][0]['channel']['display_name']
+num_viewers = stream_dict['streams'][0]['viewers']
+language = stream_dict['streams'][0]['channel']['language']
+image_url = stream_dict['streams'][0]['preview']['large']
+{% endhighlight %}
+
+## Exploring the Data
+
+Below are some example images to showcase what the data looks like. First, here is an example screenshot of what an in-game Twitch stream looks like. The character being played is Mei, and her speciality is freezing her enemies.
+
+<br>
+
+<div align="center">
+<img src="/assets/in_game1.jpg">
+</div>
+
+<br>
+  
+Sometimes Twitch streamers add their own content on top of the game, such as video of themselves and donation stats, as shown below.
+
+<br>
+
+<div align="center">
+<img src="/assets/in_game3.jpg">
+</div>
+
+<br>
+
+One thing that remains constant in-game within Overwatch is the player weapon and unique abilities displayed in the bottom right, which has a unique shape for each character. The cut image below is what Symmetra's weapon and special abilities look like.
+
+<br>
+
+<div align="center">
+<img src="/assets/cut_sample.png">
+</div>
+
+<br>
+
+Unfortunately the images aren't always so clear. Sometimes streamers will overlay something that blocks this image, or the image will just be washed out, like the image of Mei below as she walks past a white wall.
+
+<br>
+
+<div align="center">
+<img src="/assets/in_game2.jpg">
+</div>
+
+<br>
+
+Other complications that have to be accounted for are when the player is in-menus or if they aren't even playing Overwatch - sometimes streamers start playing a different game and don't update their settings.
+
+## Image Processing
+
+The images pulled from the Twitch API are sized 640x360. This is too big to work with, since with three color channels that's 691,200 data points. To solve this, we can focus on a portion of each image, resize it, or both. As mentioned above, the bottom right portion of each image has unique weapons for each character. I cropped the image to included only the bottom right portion of the image, resized it to 64x64, and made it grayscale. This reduces each image to 4096 data points, which is much more manageable.
+
+Note that this only works for the case when a streamer is in-game and playing. We need to build a separate classifier to determine whether the streamer is playing Overwatch or not, and whether they are in-game and playing or only in-menus. I'll discuss this later.
+
+For image processing, Pillow is great to use. Below is the Python snippet for how I get the image into a numpy array.
+
+{% highlight python %}
+from PIL import Image
+import requests
+from cStringIO import StringIO
+import numpy as np
+
+image_url = '' #Put your url here
+r = requests.get(image_url) 
+image = Image.open(StringIO(r.content)).crop((440,160,640,360)).resize((64, 64))
+image_data = rgb2gray(np.array(image)).reshape((1,64*64))
+{% endhighlight %}
+
+For converting from rgb to grayscale, I used the following function, as defined on Wikipedia [here](https://en.wikipedia.org/wiki/Grayscale#Luma_coding_in_video_systems).
+
+{% highlight python %}
+def rgb2gray(rgb):
+    r, g, b = rgb[:,:,0], rgb[:,:,1], rgb[:,:,2]
+    gray = 0.2989 * r + 0.5870 * g + 0.1140 * b
+    return gray
+{% endhighlight %}
+
+## Summary
+
+Now that we have the data in a much more manageable format, we can begin modeling on it. I will discuss that in my next post.
+
